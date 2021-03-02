@@ -1,0 +1,64 @@
+----------------------------------------
+Follow : https://www.youtube.com/watch?v=CUic2NZKmzo
+----------------------------------------
+
+-- 2 ways to check the zookeeper setup
+
+Way 1
+-- bash in any one container and run the following command
+    -- "echo stat|nc zookeeper1 2181 |grep Mode"
+        -- docker exec -it <<CONTAINER_ID>> /bin/sh -c "echo stat|nc <<ZOOKEEPER_HOST>> <<ZOOKEEPER_PORT>> |grep Mode"
+            -- docker exec -it ba24fa185230 /bin/sh -c "echo stat|nc zookeeper1 2181 |grep Mode"
+            -- docker exec -it ba24fa185230 /bin/sh -c "echo stat|nc zookeeper2 2181 |grep Mode"
+            -- docker exec -it ba24fa185230 /bin/sh -c "echo stat|nc zookeeper3 2181 |grep Mode"
+
+Bulky Way : Way 2
+-- Spin a new temp container from the zookeeper image in the same network as your zookeeper containers are running in.
+    -- Check the current network on which the zookeeper and KAFKA nodes are running
+        -- docker network ls
+
+        -- docker network inspect <<network_name>> (kafka_default)
+            -- docker network inspect kafka_default
+                -- This should the nodes you have spun
+    -- Create a new temp container from the zookeeper image and execute command to check the zookeeper setup
+        -- docker run --net=<<KAFKA_NETWORK>> --rm digitalwonderland/zookeeper bash -c "echo stat|nc <<ZOOKEEPER_HOSTNAME>> <<ZOOKEEPER_CLIENT_PORT>> |grep Mode"
+            -- docker run --net=kafka_default --rm digitalwonderland/zookeeper bash -c "echo stat|nc zookeeper1 2181 |grep Mode"
+
+------------------------------------------------------------------------------------------------------------------------
+                        KAFKA-COMMANDS : create topic, delete topic, list topics, describe topic produce consume message
+------------------------------------------------------------------------------------------------------------------------
+-- 1. Create KAFKA topic "bar"
+     -- docker exec -it <<ANY_KAFKA_CONTAINER_ID>> /bin/sh -c "<<PATH_TO_kafka-topics.sh>> --create --topic <<TOPIC_NAME>> --bootstrap-server <<KAFKA_HOST>>:<<KAFKA_CLIENT_PORT>>"
+        -- Topic with no partitions
+            -- docker exec -it 906ed36a66cd /bin/sh -c "/opt/kafka_2.13-2.7.0/bin/kafka-topics.sh --create --topic bar --bootstrap-server localhost:9092"
+        -- Topic with partitions
+            -- docker exec -it 906ed36a66cd /bin/sh -c "/opt/kafka_2.13-2.7.0/bin/kafka-topics.sh --create --topic bar --partitions 3 --replication-factor 3 --if-not-exists --zookeeper zookeeper1 2181"
+
+-- 2. Check the topic details
+        -- Topic with no partitions
+            -- docker exec -it 906ed36a66cd /bin/sh -c "/opt/kafka_2.13-2.7.0/bin/kafka-topics.sh --zookeeper zookeeper1:2181 --describe --topic bar"
+                -- Output
+                    Topic: bar      PartitionCount: 1       ReplicationFactor: 1    Configs:
+                            Topic: bar      Partition: 0    Leader: 1002    Replicas: 1002  Isr: 1002
+                -- Output
+        -- docker exec -it 906ed36a66cd /bin/sh -c "/opt/kafka_2.13-2.7.0/bin/kafka-topics.sh --zookeeper zookeeper1:2181 --describe --topic helloworld"
+                -- Output
+                    Topic: helloworld       PartitionCount: 3       ReplicationFactor: 3    Configs:
+                            Topic: helloworld       Partition: 0    Leader: 1002    Replicas: 1002,1003,1001        Isr: 1002,1003,1001         //Isr : In-Sync replica
+                            Topic: helloworld       Partition: 1    Leader: 1003    Replicas: 1003,1001,1002        Isr: 1003,1001,1002         //Isr : In-Sync replica
+                            Topic: helloworld       Partition: 2    Leader: 1001    Replicas: 1001,1002,1003        Isr: 1001,1002,1003         //Isr : In-Sync replica
+                -- Output
+-- 3. Topics list
+        -- List all the topics
+           -- docker exec -it 906ed36a66cd /bin/sh -c "/opt/kafka_2.13-2.7.0/bin/kafka-topics.sh --zookeeper zookeeper1:2181 --list"
+-- 4. Topic deletion
+        -- "Note: This will have no impact if delete.topic.enable is not set to true."
+           -- docker exec -it 906ed36a66cd /bin/sh -c "/opt/kafka_2.13-2.7.0/bin/kafka-topics.sh --zookeeper zookeeper1:2181 --delete --topic remove-me"
+
+------------------------------------------------------------------------------------------------------------------------
+                        KAFKA-COMMANDS : produce , consume messages
+------------------------------------------------------------------------------------------------------------------------
+-- 1. Produce messages : It will be interesting to see what happens if we produce a series of messages to (1) Partitioned topic and (2) Partitioned topic
+        -- docker exec -it 906ed36a66cd /bin/sh -c "seq 100 | /opt/kafka_2.13-2.7.0/bin/kafka-console-producer.sh --broker-list kafka1:9092 --topic bar && echo 'Produced 100 messages'"
+-- 2. Consume messages :
+        -- docker exec -it 906ed36a66cd /bin/sh -c "/opt/kafka_2.13-2.7.0/bin/kafka-console-consumer.sh --bootstrap-server kafka1:9092 --topic bar --from-beginning --max-messages 50"
