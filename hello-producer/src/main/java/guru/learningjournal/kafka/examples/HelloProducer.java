@@ -47,7 +47,9 @@ public class HelloProducer {
         KafkaProducer<Integer, String> producer = new KafkaProducer<>(props);
 
         logger.info("Start sending messages...");
+
         for (int i = 1; i <= AppConfigs.numEvents; i++) {
+            logger.info("Start sending message..."+i);
             producer.send(new ProducerRecord<>(AppConfigs.topicName, i, "Simple Message-" + i));
         }
 

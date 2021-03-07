@@ -1,85 +1,53 @@
-version: "2.4"
+---
+version: '2.4'
 services:
   zookeeper1:
-    image: digitalwonderland/zookeeper
-    container_name: zookeeper1
+    image: "confluentinc/cp-zookeeper:5.2.1"
     environment:
-      - ZOOKEEPER_ID=1
-      - ZOOKEEPER_SERVER_1=zookeeper1
-      - ZOOKEEPER_SERVER_2=zookeeper2
-      - ZOOKEEPER_SERVER_3=zookeeper3
-      - ZOOKEEPER_CLIENT_PORT=2181
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
     ports:
-      - 2181:2181
-      - 2888:2888
-      - 3888:3888
-
-
+      - '2181:2181'
   zookeeper2:
-    image: digitalwonderland/zookeeper
-    container_name: zookeeper2
+    image: "confluentinc/cp-zookeeper:5.2.1"
     environment:
-      - ZOOKEEPER_ID=2
-      - ZOOKEEPER_SERVER_1=zookeeper1
-      - ZOOKEEPER_SERVER_2=zookeeper2
-      - ZOOKEEPER_SERVER_3=zookeeper3
-      - ZOOKEEPER_CLIENT_PORT=2181
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
     ports:
-      - 2182:2181
-      - 2889:2888
-      - 3889:3888
-
-
+      - '3181:2181'
   zookeeper3:
-    image: digitalwonderland/zookeeper
-    container_name: zookeeper3
+    image: "confluentinc/cp-zookeeper:5.2.1"
     environment:
-      - ZOOKEEPER_ID=3
-      - ZOOKEEPER_SERVER_1=zookeeper1
-      - ZOOKEEPER_SERVER_2=zookeeper2
-      - ZOOKEEPER_SERVER_3=zookeeper3
-      - ZOOKEEPER_CLIENT_PORT=2181
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
     ports:
-      - 2183:2181
-      - 2890:2888
-      - 3890:3888
+      - '4181:2181'
 
-
+  # This has three listeners you can experiment with.
+  # BOB for internal traffic on the Docker network
+  # FRED for traffic from the Docker-host machine (`localhost`)
+  # ALICE for traffic from outside, reaching the Docker host on the DNS name `DNS resolvable name`
+  # Use
   kafka1:
-    image: wurstmeister/kafka
-    container_name: kafka1
-    environment:
-      - KAFKA_ADVERTISED_PORT=9092
-      - KAFKA_ADVERTISED_HOST_NAME=kafka1
-      - KAFKA_ZOOKEEPER_CONNECT=zookeeper1:2181,zookeeper2:2181,zookeeper3:2181
-#      - KAFKA_ZOOKEEPER_CONNECT=zookeeper1:2181
-      - KAFKA_LOG_RETENTION_HOURS=4
-      - KAFKA_LOG_RETENTION_BYTES=1000000000
+    image: "confluentinc/cp-enterprise-kafka:5.2.1"
     ports:
-      - 9092:9092
-
-
-  kafka2:
-    image: wurstmeister/kafka
-    container_name: kafka2
+      - '9092:9092'
+      - '29092:29092'
+      - '29094:29094'
+    depends_on:
+      - zookeeper1
     environment:
-      - KAFKA_ADVERTISED_PORT=9092
-      - KAFKA_ADVERTISED_HOST_NAME=kafka2
-      - KAFKA_ZOOKEEPER_CONNECT=zookeeper1:2181,zookeeper2:2181,zookeeper3:2181
-      - KAFKA_LOG_RETENTION_HOURS=4
-      - KAFKA_LOG_RETENTION_BYTES=1000000000
-    ports:
-      - 9093:9092
+      - KAFKA_BROKER_ID= 0
+      - KAFKA_ZOOKEEPER_CONNECT= zookeeper1:2181
+      - KAFKA_LISTENERS= LISTENER_BOB://kafka1:9092,LISTENER_FRED://kafka1:29092,LISTENER_ALICE://kafka1:29094
+      - KAFKA_ADVERTISED_LISTENERS= LISTENER_BOB://kafka1:9092,LISTENER_FRED://localhost:29092,LISTENER_ALICE://dns-resolvable-name:29094
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP= LISTENER_BOB:PLAINTEXT,LISTENER_FRED:PLAINTEXT,LISTENER_ALICE:PLAINTEXT
+      - KAFKA_INTER_BROKER_LISTENER_NAME= LISTENER_BOB
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE= TRUE
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR= 1
+      - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS= 100
 
-
-  kafka3:
-    image: wurstmeister/kafka
-    container_name: kafka3
-    environment:
-      - KAFKA_ADVERTISED_PORT=9092
-      - KAFKA_ADVERTISED_HOST_NAME=kafka3
-      - KAFKA_ZOOKEEPER_CONNECT=zookeeper1:2181,zookeeper2:2181,zookeeper3:2181
-      - KAFKA_LOG_RETENTION_HOURS=4
-      - KAFKA_LOG_RETENTION_BYTES=1000000000
-    ports:
-      - 9094:9092
+# Kafka Debug
+#  kafkacat:
+#    image: confluentinc/cp-kafkacat
+#    command: sleep infinity
